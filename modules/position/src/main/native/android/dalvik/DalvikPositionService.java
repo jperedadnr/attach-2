@@ -37,6 +37,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.HandlerThread;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -65,7 +66,7 @@ public class DalvikPositionService implements LocationListener {
     private LocationManager locationManager;
     private String locationProvider;
 
-    private AndroidLooperTask looperTask = null;
+    private HandlerThread handlerThread;
     private long timeInterval = 90000;
     private float distanceFilter = 1000.0f;
     private boolean backgroundModeEnabled = false;
@@ -75,12 +76,25 @@ public class DalvikPositionService implements LocationListener {
     public DalvikPositionService(Activity activity) {
         Log.v(TAG, "Construct DalvikPositionService");
         this.activityContext = activity;
-        boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION) || 
-                Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION);
-        if (!gpsEnabled) {
-            Log.v(TAG, "GPS disabled. ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION permissions are required");
-        }
-    }    
+
+        Util.setLifecycleEventHandler(new LifecycleEventHandler() {
+
+            @Override
+            public void lifecycleEvent(String event) {
+                if (event != null) {
+                    switch (event) {
+                        case "pause":
+                            Log.v(TAG, "DalvikPositionService::pause");
+                            break;
+                        case "resume":
+                            Log.v(TAG, "DalvikPositionService::resume");
+                            break;
+                        default: break;
+                    }
+                }
+            }
+        });
+    }
 
     public void enableDebug() {
         debug = true;
@@ -105,7 +119,7 @@ public class DalvikPositionService implements LocationListener {
         Log.v(TAG, "DalvikPositionService, stop called, quit looper");
         running = false;
         
-        quitLooperTask();
+        quitHandlerThread();
         if (debug) {
             Log.v(TAG, "DalvikPositionService, stop called, looper quit");
         }
@@ -134,8 +148,8 @@ public class DalvikPositionService implements LocationListener {
         if (debug) {
             Log.v(TAG, String.format("LocationProvider %s was enabled by the user.", provider));
         }
-        if (provider.equals(locationProvider) && looperTask == null) {
-            createLooperTask();
+        if (provider.equals(locationProvider) && handlerThread == null) {
+            createHandlerThread();
         }
     }
 
@@ -146,12 +160,17 @@ public class DalvikPositionService implements LocationListener {
         }
         
         if (provider.equals(locationProvider)) {
-            quitLooperTask();
+            quitHandlerThread();
         }
     }
         
-    private void initialize() {    
-        
+    private void initialize() {
+        boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION) ||
+                Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION);
+        if (!gpsEnabled) {
+            Log.v(TAG, "GPS disabled. ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION permissions are required");
+        }
+
         Object systemService = activityContext.getSystemService(Activity.LOCATION_SERVICE);
         locationManager = (LocationManager) systemService;
 
@@ -189,7 +208,7 @@ public class DalvikPositionService implements LocationListener {
         
         Services.get(LifecycleService.class).ifPresent(l -> {
             l.addListener(LifecycleEvent.PAUSE, () -> {
-                quitLooperTask();
+                quitHandlerThread();
                 // if the PositionService is still running and backgroundModeEnabled 
                 // then start background service when the app goes to background
                 if (running && parameters.isBackgroundModeEnabled()) {
@@ -206,45 +225,38 @@ public class DalvikPositionService implements LocationListener {
                     } catch (IllegalArgumentException e) {}
                     activityContext.stopService(serviceIntent);
                 }
-                createLooperTask();
+                createHandlerThread();
             });
         });
 */
-        createLooperTask();
+        createHandlerThread();
     }
 
-    private void createLooperTask() {
+    private void createHandlerThread() {
         if (locationManager == null) {
             if (debug) {
-                Log.v(TAG, "There is no LocationManager. Can't start LooperTask");
+                Log.v(TAG, "There is no LocationManager. Can't start HandlerThread");
             }
             return;
         }
         
         if (debug) {
-            Log.v(TAG, String.format("Creating LooperTask to request location updates every %d milliseconds or %f meters.", timeInterval, distanceFilter));
+            Log.v(TAG, String.format("Creating HandlerThread to request location updates every %d milliseconds or %f meters.", timeInterval, distanceFilter));
         }
-        
-        looperTask = new AndroidLooperTask() {
-            @Override
-            public void execute() {
-                locationManager.requestLocationUpdates(timeInterval, distanceFilter,
-                        getLocationProvider(), DalvikPositionService.this, this.getLooper());
-            }
-        };
 
-        Thread thread = new Thread(looperTask);
-        thread.setDaemon(true);
-        thread.start();
+        handlerThread = new HandlerThread("handler thread");
+        handlerThread.start();
+        locationManager.requestLocationUpdates(timeInterval, distanceFilter,
+                getLocationProvider(), DalvikPositionService.this, handlerThread.getLooper());
     }
     
-    private void quitLooperTask() {
+    private void quitHandlerThread() {
         if (debug) {
-            Log.v(TAG, "Cancelling LooperTask");
+            Log.v(TAG, "Cancelling HandlerThread");
         }
-        if (looperTask != null) {
-            looperTask.quit();
-            looperTask = null;
+        if (handlerThread != null) {
+            handlerThread.quit();
+            handlerThread = null;
         }
         if (locationManager != null) {
             locationManager.removeUpdates(this);

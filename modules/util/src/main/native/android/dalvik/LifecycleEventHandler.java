@@ -25,12 +25,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+package com.gluonhq.helloandroid;
 
-#include "grandroid_ext.h"
-#include <android/log.h>
+public interface LifecycleEventHandler {
 
-#define ATTACH_LOG_INFO(...)  ((void)__android_log_print(ANDROID_LOG_INFO,"GluonAttach", __VA_ARGS__))
-#define ATTACH_LOG_FINE(...)  ((void)__android_log_print(ANDROID_LOG_DEBUG,"GluonAttach", __VA_ARGS__))
-#define ATTACH_LOG_FINEST(...)  ((void)__android_log_print(ANDROID_LOG_VERBOSE,"GluonAttach", __VA_ARGS__))
-#define ATTACH_LOG_WARNING(...)  ((void)__android_log_print(ANDROID_LOG_WARN,"GluonAttach", __VA_ARGS__))
-#define ATTACH_LOG_SEVERE(...)  ((void)__android_log_print(ANDROID_LOG_ERROR,"GluonAttach", __VA_ARGS__))
+    void lifecycleEvent(String event);
+
+}

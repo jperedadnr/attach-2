@@ -156,7 +156,7 @@ public class DalvikPositionService implements LocationListener {
     @Override
     public void onProviderDisabled(String provider) {
         if (debug) {
-            Log.v(TAG, String.format("LocationProvider %s was disabled by the user, quitting looper task.", provider));
+            Log.v(TAG, String.format("LocationProvider %s was disabled by the user, quitting handler thread.", provider));
         }
         
         if (provider.equals(locationProvider)) {
@@ -179,7 +179,7 @@ public class DalvikPositionService implements LocationListener {
             Log.v(TAG, String.format("Available location providers on this device: %s.", locationProviders.toString()));
         }
         
-        locationProvider = locationManager.getBestProvider(getLocationProvider(), false);
+        locationProvider = locationManager.getBestProvider(getCriteria(), false);
         if (debug) {
             Log.v(TAG, String.format("Picked %s as best location provider.", locationProvider));
         }
@@ -247,19 +247,19 @@ public class DalvikPositionService implements LocationListener {
         handlerThread = new HandlerThread("handler thread");
         handlerThread.start();
         locationManager.requestLocationUpdates(timeInterval, distanceFilter,
-                getLocationProvider(), DalvikPositionService.this, handlerThread.getLooper());
+                getCriteria(), DalvikPositionService.this, handlerThread.getLooper());
     }
     
     private void quitHandlerThread() {
         if (debug) {
             Log.v(TAG, "Cancelling HandlerThread");
         }
+        if (locationManager != null) {
+            locationManager.removeUpdates(this);
+        }
         if (handlerThread != null) {
             handlerThread.quit();
             handlerThread = null;
-        }
-        if (locationManager != null) {
-            locationManager.removeUpdates(this);
         }
     }
 
@@ -276,7 +276,7 @@ public class DalvikPositionService implements LocationListener {
 
     private native void updatePositionNative(double lat, double lon, double alt);
 
-    private Criteria getLocationProvider() {
+    private Criteria getCriteria() {
         final Criteria criteria = new Criteria();
         if (timeInterval <= 1000 && distanceFilter <= 1.0f) {
             // Parameters HIGH/HIGHEST

@@ -37,6 +37,7 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.HandlerThread;
 import android.provider.Settings;
@@ -54,7 +55,10 @@ import java.util.List;
  *  <uses-permission a:name="android.permission.ACCESS_FINE_LOCATION"/>}
  *
  * If background mode is enabled, it also requires:
- * {@code <service a:name="com.gluonhq.helloandroid.PositionBackgroundService" a:process=":positionBackgroundService" />}
+ * {@code
+ * <uses-permission a:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+ * ...
+ * <service a:name="com.gluonhq.helloandroid.PositionBackgroundService" a:process=":positionBackgroundService" />}
  *
  */
 
@@ -174,10 +178,18 @@ public class DalvikPositionService implements LocationListener {
     }
         
     private void initialize() {
-        boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION) ||
-                Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION);
-        if (!gpsEnabled) {
-            Log.v(TAG, "GPS disabled. ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION permissions are required");
+        if (backgroundModeEnabled) {
+            boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION, "android.permission.ACCESS_BACKGROUND_LOCATION") ||
+                    Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION,  "android.permission.ACCESS_BACKGROUND_LOCATION");
+            if (!gpsEnabled) {
+                Log.v(TAG, "GPS disabled. ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION, and ACCESS_BACKGROUND_LOCATION permissions are required");
+            }
+        } else {
+            boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION) ||
+                    Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION);
+            if (!gpsEnabled) {
+                Log.v(TAG, "GPS disabled. ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION permissions are required");
+            }
         }
 
         Object systemService = activityContext.getSystemService(Activity.LOCATION_SERVICE);
@@ -298,7 +310,11 @@ public class DalvikPositionService implements LocationListener {
         if (running && backgroundModeEnabled) {
             Log.v(TAG, "Pause: Register Receiver");
             activityContext.registerReceiver(broadcastReceiver, intentFilter);
-            activityContext.startService(serviceIntent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                activityContext.startForegroundService(serviceIntent);
+            } else {
+                activityContext.startService(serviceIntent);
+            }
         }
     }
 

@@ -32,6 +32,7 @@ import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
@@ -49,9 +50,12 @@ import java.util.List;
  * Android platform.
  * 
  * Requires ACCESS_COARSE_LOCATION and/or ACCESS_FINE_LOCATION permission:
- * {@code <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
- *  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
- * 
+ * {@code <uses-permission a:name="android.permission.ACCESS_COARSE_LOCATION"/>
+ *  <uses-permission a:name="android.permission.ACCESS_FINE_LOCATION"/>}
+ *
+ * If background mode is enabled, it also requires:
+ * {@code <service a:name="com.gluonhq.helloandroid.PositionBackgroundService" a:process=":positionBackgroundService" />}
+ *
  */
 
 public class DalvikPositionService implements LocationListener {
@@ -66,7 +70,10 @@ public class DalvikPositionService implements LocationListener {
     private LocationManager locationManager;
     private String locationProvider;
 
+    private Intent serviceIntent;
+    private IntentFilter intentFilter;
     private HandlerThread handlerThread;
+
     private long timeInterval = 90000;
     private float distanceFilter = 1000.0f;
     private boolean backgroundModeEnabled = false;
@@ -85,9 +92,11 @@ public class DalvikPositionService implements LocationListener {
                     switch (event) {
                         case "pause":
                             Log.v(TAG, "DalvikPositionService::pause");
+                            pauseObserver();
                             break;
                         case "resume":
                             Log.v(TAG, "DalvikPositionService::resume");
+                            resumeObserver();
                             break;
                         default: break;
                     }
@@ -202,33 +211,9 @@ public class DalvikPositionService implements LocationListener {
             updatePosition(lastKnownLocation);
         }
 
-/*
-        final Intent serviceIntent = new Intent(activityContext, AndroidPositionBackgroundService.class);
-        final IntentFilter intentFilter = new IntentFilter(AndroidPositionBackgroundService.class.getName());
+        serviceIntent = new Intent(activityContext, PositionBackgroundService.class);
+        intentFilter = new IntentFilter(PositionBackgroundService.class.getName());
         
-        Services.get(LifecycleService.class).ifPresent(l -> {
-            l.addListener(LifecycleEvent.PAUSE, () -> {
-                quitHandlerThread();
-                // if the PositionService is still running and backgroundModeEnabled 
-                // then start background service when the app goes to background
-                if (running && parameters.isBackgroundModeEnabled()) {
-                    activityContext.registerReceiver(broadcastReceiver, intentFilter);
-                    activityContext.startService(serviceIntent);
-                }
-            });
-            l.addListener(LifecycleEvent.RESUME, () -> {
-                // if backgroundModeEnabled then stop the background service when
-                // the app goes to foreground and resume PositionService
-                if (parameters.isBackgroundModeEnabled()) {
-                    try {
-                        activityContext.unregisterReceiver(broadcastReceiver);
-                    } catch (IllegalArgumentException e) {}
-                    activityContext.stopService(serviceIntent);
-                }
-                createHandlerThread();
-            });
-        });
-*/
         createHandlerThread();
     }
 
@@ -305,13 +290,38 @@ public class DalvikPositionService implements LocationListener {
         }
         return criteria;
     }
-    
+
+    private void pauseObserver() {
+        quitHandlerThread();
+        // if the PositionService is still running and backgroundModeEnabled
+        // then start background service when the app goes to background
+        if (running && backgroundModeEnabled) {
+            Log.v(TAG, "Pause: Register Receiver");
+            activityContext.registerReceiver(broadcastReceiver, intentFilter);
+            activityContext.startService(serviceIntent);
+        }
+    }
+
+    private void resumeObserver() {
+        // if backgroundModeEnabled then stop the background service when
+        // the app goes to foreground and resume PositionService
+        if (backgroundModeEnabled) {
+            Log.v(TAG, "Resume: Unregister Receiver");
+            try {
+                activityContext.unregisterReceiver(broadcastReceiver);
+            } catch (IllegalArgumentException e) {}
+            activityContext.stopService(serviceIntent);
+        }
+        createHandlerThread();
+    }
+
     private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Double latitude = Double.valueOf(intent.getStringExtra(LATITUDE));
             Double longitude = Double.valueOf(intent.getStringExtra(LONGITUDE));
             Double altitude = Double.valueOf(intent.getStringExtra(ALTITUDE));
+            Log.v(TAG, "Broadcast receiver: " + intent);
             updatePosition(latitude, longitude, altitude);
         }
     };

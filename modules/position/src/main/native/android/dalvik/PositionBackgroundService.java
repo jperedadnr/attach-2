@@ -28,6 +28,8 @@
 package com.gluonhq.helloandroid;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -50,6 +52,8 @@ import static com.gluonhq.helloandroid.DalvikPositionService.LONGITUDE;
 public class PositionBackgroundService extends Service implements LocationListener {
 
     private static final String TAG = "GluonAttach";
+    private static final String CHANNEL_ID = "attach_channel";
+    private static final String CHANNEL_NAME = "attach_notification";
 
     private final Intent intent;
     private LocationManager locationManager;
@@ -76,7 +80,11 @@ public class PositionBackgroundService extends Service implements LocationListen
 
         int NOTIFICATION_ID = (int) (System.currentTimeMillis()%10000);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForeground(NOTIFICATION_ID, new Notification.Builder(this).build());
+            createChannel();
+            Notification.Builder builder = new Notification.Builder(this);
+            builder.setChannelId(CHANNEL_ID);
+            builder.setPriority(Notification.PRIORITY_LOW);
+            startForeground(NOTIFICATION_ID, builder.build());
         }
 
         locationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
@@ -115,7 +123,7 @@ public class PositionBackgroundService extends Service implements LocationListen
 
     @Override
     public void onStatusChanged(String string, int i, Bundle bundle) {
-        Log.v(TAG, "STATUS: " + string + " " + bundle);
+        Log.v(TAG, "Background service status: " + string + " " + bundle);
     }
 
     @Override
@@ -126,4 +134,9 @@ public class PositionBackgroundService extends Service implements LocationListen
     public void onProviderDisabled(String string) {
     }
 
+    private void createChannel() {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW);
+        notificationManager.createNotificationChannel(channel);
+    }
 }

@@ -57,6 +57,7 @@ import java.util.List;
  * If background mode is enabled, it also requires:
  * {@code
  * <uses-permission a:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+ * <uses-permission a:name="android.permission.FOREGROUND_SERVICE" />
  * ...
  * <service a:name="com.gluonhq.helloandroid.PositionBackgroundService" a:process=":positionBackgroundService" />}
  *
@@ -179,8 +180,8 @@ public class DalvikPositionService implements LocationListener {
         
     private void initialize() {
         if (backgroundModeEnabled) {
-            boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION, "android.permission.ACCESS_BACKGROUND_LOCATION") ||
-                    Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION,  "android.permission.ACCESS_BACKGROUND_LOCATION");
+            boolean gpsEnabled = Util.verifyPermissions(Manifest.permission.ACCESS_COARSE_LOCATION, "android.permission.ACCESS_BACKGROUND_LOCATION", "android.permission.FOREGROUND_SERVICE") ||
+                    Util.verifyPermissions(Manifest.permission.ACCESS_FINE_LOCATION,  "android.permission.ACCESS_BACKGROUND_LOCATION", "android.permission.FOREGROUND_SERVICE");
             if (!gpsEnabled) {
                 Log.v(TAG, "GPS disabled. ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION, and ACCESS_BACKGROUND_LOCATION permissions are required");
             }

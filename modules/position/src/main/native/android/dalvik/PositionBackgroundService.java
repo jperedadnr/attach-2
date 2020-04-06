@@ -71,15 +71,15 @@ public class PositionBackgroundService extends Service implements LocationListen
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
         Log.v(TAG, "Start Background service");
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     @Override
     public void onCreate() {
         Log.v(TAG, "Initialize PositionBackgroundService");
 
-        int NOTIFICATION_ID = (int) (System.currentTimeMillis()%10000);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            int NOTIFICATION_ID = (int) (System.currentTimeMillis()%10000);
             createChannel();
             Notification.Builder builder = new Notification.Builder(this);
             builder.setChannelId(CHANNEL_ID);
@@ -101,11 +101,13 @@ public class PositionBackgroundService extends Service implements LocationListen
             return;
         }
 
+        Log.v(TAG, "Request Background Updates with LocationProvider: " + provider);
         locationManager.requestLocationUpdates(provider, 5000, 15.0f, this);
     }
 
     @Override
     public void onDestroy() {
+        stopForeground(false);
         super.onDestroy();
         Log.v(TAG, "Finalize PositionBackgroundService");
         locationManager.removeUpdates(this);
@@ -123,7 +125,6 @@ public class PositionBackgroundService extends Service implements LocationListen
 
     @Override
     public void onStatusChanged(String string, int i, Bundle bundle) {
-        Log.v(TAG, "Background service status: " + string + " " + bundle);
     }
 
     @Override

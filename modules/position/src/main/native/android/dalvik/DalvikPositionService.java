@@ -103,6 +103,10 @@ public class DalvikPositionService implements LocationListener {
                             Log.v(TAG, "DalvikPositionService::resume");
                             resumeObserver();
                             break;
+                        case "destroy":
+                            Log.v(TAG, "DalvikPositionService::destroy");
+                            stopObserver();
+                            break;
                         default: break;
                     }
                 }
@@ -320,6 +324,11 @@ public class DalvikPositionService implements LocationListener {
     }
 
     private void resumeObserver() {
+        stopObserver();
+        createHandlerThread();
+    }
+
+    private void stopObserver() {
         // if backgroundModeEnabled then stop the background service when
         // the app goes to foreground and resume PositionService
         if (backgroundModeEnabled) {
@@ -329,7 +338,6 @@ public class DalvikPositionService implements LocationListener {
             } catch (IllegalArgumentException e) {}
             activityContext.stopService(serviceIntent);
         }
-        createHandlerThread();
     }
 
     private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {

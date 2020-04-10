@@ -2,10 +2,10 @@ apply plugin: 'java'
 apply plugin: 'maven-publish'
 //apply plugin: 'signing'
 
-def nativeLib(buildDir, projectDir, service, osname) {
+def nativeLib(project, service, osname) {
     return tasks.create("nativeLib${service}${osname}") {
         doLast {
-            File lib = nativeBuild("$buildDir", "$projectDir", "$service", "$osname")
+            File lib = nativeBuild(project, service, osname)
             if (lib != null) {
                 tasks["jar${service}${osname}"].configure {
                     into("native") {
@@ -17,18 +17,18 @@ def nativeLib(buildDir, projectDir, service, osname) {
     }
 }
 
-def jarPackage(buildDir, projectDir, service, osname) {
+def jarPackage(project, service, osname) {
     return tasks.create("jar${service}${osname}", Jar) {
         dependsOn(build)
         if (osname != "") {
-            def nativeTask = nativeLib("$buildDir", "$projectDir", "$service", "$osname")
+            def nativeTask = nativeLib(project, service, osname)
             dependsOn(nativeTask)
-            archiveBaseName = "${service}".toLowerCase()
+            archiveBaseName = service.toLowerCase()
             archiveClassifier = osname
             into ("") {
-                from "${buildDir}/resources/main"
-                from "$projectDir/src/$osname/resources/"
-                from "${buildDir}/classes/java/main"
+                from "${project.buildDir}/resources/main"
+                from "${project.projectDir}/src/${osname}/resources/"
+                from "${project.buildDir}/classes/java/main"
                 exclude '**/*/impl/Dummy**'
                 if (osname == 'desktop') {
                     exclude "**/impl/IOS**", "**/**ios.json", '**/*/impl/Android**', "**/**android.json"
@@ -42,7 +42,7 @@ def jarPackage(buildDir, projectDir, service, osname) {
                 }
             }
         } else {
-            from "${buildDir}/classes/java/main"
+            from "${project.buildDir}/classes/java/main"
             exclude "**/impl/Desktop**", "**/**darwin.json", "**/**linux.json", "**/**windows.json", "**/impl/IOS**", "**/**ios.json", '**/*/impl/Android**', "**/**android.json"
         }
     }
@@ -64,14 +64,14 @@ publishing {
             def service = getServiceName(project.name)
             if (service != "Util") {
                 if (System.getProperty('os.name').toLowerCase().contains("mac")) {
-                    artifact jarPackage("$project.buildDir", "$project.projectDir", "${service}", "ios")
+                    artifact jarPackage(project, service, "ios")
                 }
-                artifact jarPackage("$project.buildDir", "$project.projectDir", "${service}", "android")
-                artifact jarPackage("$project.buildDir", "$project.projectDir", "${service}", "desktop")
+                artifact jarPackage(project, service, "android")
+                artifact jarPackage(project, service, "desktop")
             } else {
-                artifact jarPackage("$project.buildDir", "$project.projectDir", "${service}", "android")
+                artifact jarPackage(project, service, "android")
             }
-            artifact jarPackage("$project.buildDir", "$project.projectDir", "${service}", "")
+            artifact jarPackage(project, service, "")
             artifact sourcesJar
             artifact javadocJar
 

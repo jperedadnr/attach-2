@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, Gluon
+ * Copyright (c) 2020, Gluon
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,34 +28,17 @@
 package com.gluonhq.attach.pushnotifications.impl;
 
 import com.gluonhq.attach.pushnotifications.PushNotificationsService;
-import com.gluonhq.attach.runtimeargs.RuntimeArgsService;
-import com.gluonhq.attach.util.Constants;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.scene.control.Alert;
 
-/**
- * iOS implementation of PushNotificationsService.
- */
-public class IOSPushNotificationsService implements PushNotificationsService {
-
-    static {
-        System.loadLibrary("PushNotifications");
-    }
+public class AndroidPushNotificationsService implements PushNotificationsService {
 
     /**
      * A string property to wrap the token device when received from the native layer
      */
     private static final ReadOnlyStringWrapper TOKEN = new ReadOnlyStringWrapper();
-
-    public IOSPushNotificationsService() {
-        if ("true".equals(System.getProperty(Constants.ATTACH_DEBUG))) {
-            enableDebug();
-        }
-        
-        // Initialize RAS service
-        RuntimeArgsService.create();
-    }
 
     @Override
     public ReadOnlyStringProperty tokenProperty() {
@@ -64,27 +47,22 @@ public class IOSPushNotificationsService implements PushNotificationsService {
 
     @Override
     public void register() {
-        initPushNotifications();
-    }
+        int resultCode = isGooglePlayServicesAvailable();
+        if (resultCode == 0) { // ConnectionResult.SUCCESS
 
-    // native
-    private static native void initPushNotifications();
-    private static native void enableDebug();
-    
-    /**
-     * @param s String with the error description
-     */
-    private static void failToRegisterForRemoteNotifications(String s) {
-        Platform.runLater(() -> System.out.println("Failed registering Push Notifications with error: " + s));
-    }
-
-    /**
-     * @param token String with the device token description
-     */
-    private static void didRegisterForRemoteNotifications(String token) {
-        if (token == null) {
-            return;
+        } else {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setContentText("Google Play Services Error:\n" +
+                        getErrorString(resultCode) +
+                        "\n\nPush notifications won't work until this error is fixed");
+                alert.showAndWait();
+            });
         }
-        Platform.runLater(() -> TOKEN.setValue(token));
     }
+
+    private static native void enableDebug();
+    private static native int isGooglePlayServicesAvailable();
+    private static native String getErrorString(int resultCode);
+    private static native void initializeFirebase(String applicationId, String projectNumber);
 }

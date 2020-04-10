@@ -28,10 +28,17 @@
 package com.gluonhq.helloandroid;
 
 import android.app.Activity;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
+import android.content.Context;
+import android.os.Build;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
 
 public class DalvikPushNotificationsService {
 
@@ -48,6 +55,10 @@ public class DalvikPushNotificationsService {
 
     public void enableDebug() {
         this.debug = true;
+    }
+
+    public String getPackageName() {
+        return activity.getPackageName();
     }
 
     public int isGooglePlayServicesAvailable() {
@@ -72,9 +83,29 @@ public class DalvikPushNotificationsService {
         return apiAvailability.getErrorString(resultCode);
     }
 
-    public void initializeFirebase(String applicationId, String productNumber) {
+    public void initializeFirebase(String applicationId, String projectNumber) {
         if (debug) {
-            Log.d(TAG, "Initializing Firebase for application " + applicationId + " and product number " + productNumber);
+            Log.d(TAG, "Initializing Firebase for application " + applicationId + " and project number " + projectNumber);
+        }
+
+        FirebaseApp firebaseApp = FirebaseApp.initializeApp(activity, new FirebaseOptions.Builder()
+                    .setApplicationId(applicationId)
+                    .setGcmSenderId(projectNumber)
+                    .build());
+
+        Log.i(TAG, "FirebaseApp initialized succesfully: " + firebaseApp);
+
+        // schedule a job that triggers every hour and only prints out a single line
+        // this is a way to allow the app to keep receiving push notifications, even
+        // in case the app was closed forcibly
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            JobInfo jobInfo = new JobInfo.Builder(PushNotificationJobService.JOB_ID, new ComponentName(activity, PushNotificationJobService.class))
+                    .setPersisted(true)
+                    .setPeriodic(1000 * 60 * 60) // every hour
+                    .build();
+
+            JobScheduler scheduler = (JobScheduler) activity.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+            scheduler.schedule(jobInfo);
         }
     }
 }

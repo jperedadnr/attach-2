@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Gluon
+ * Copyright (c) 2020, Gluon
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,15 +25,27 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-module com.gluonhq.attach.pushnotifications {
+package com.gluonhq.helloandroid;
 
-    requires transitive javafx.controls;
+import android.app.job.JobParameters;
+import android.app.job.JobService;
+import android.util.Log;
 
-    requires com.gluonhq.attach.util;
-    requires com.gluonhq.attach.runtime.args;
+public class PushNotificationJobService extends JobService {
 
-    requires java.json;
+    private static final String TAG = "GluonAttach";
 
-    exports com.gluonhq.attach.pushnotifications;
-    exports com.gluonhq.attach.pushnotifications.impl to com.gluonhq.attach.util;
+    public static final int JOB_ID = 10;
+
+    @Override
+    public boolean onStartJob(JobParameters jobParameters) {
+        Log.v(TAG, "Gluon Attach PushNotification job has been triggered to start.");
+        return false;
+    }
+
+    @Override
+    public boolean onStopJob(JobParameters jobParameters) {
+        Log.v(TAG, "Gluon Attach PushNotification job has been triggered to stop.");
+        return true;
+    }
 }

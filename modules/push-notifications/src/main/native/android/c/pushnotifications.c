@@ -43,6 +43,7 @@ static void initializeGraalHandles(JNIEnv* env) {
 // Dalvik handles
 static jobject jDalvikPushNotificationsService;
 jmethodID jDalvikPushNotificationsServiceEnableDebug;
+jmethodID jDalvikPushNotificationsServiceGetPackageName;
 jmethodID jDalvikPushNotificationsServiceIsGooglePlayServicesAvailable;
 jmethodID jDalvikPushNotificationsServiceGetErrorString;
 jmethodID jDalvikPushNotificationsServiceInitializeFirebase;
@@ -59,6 +60,7 @@ static void initializeDalvikHandles() {
     }
     jmethodID jPushNotificationsServiceServiceInitMethod = (*androidEnv)->GetMethodID(androidEnv, jPushNotificationsServiceClass, "<init>", "(Landroid/app/Activity;)V");
     jDalvikPushNotificationsServiceEnableDebug = (*androidEnv)->GetMethodID(androidEnv, jPushNotificationsServiceClass, "enableDebug", "()V");
+    jDalvikPushNotificationsServiceGetPackageName = (*androidEnv)->GetMethodID(androidEnv, jPushNotificationsServiceClass, "getPackageName", "()java/lang/String;");
     jDalvikPushNotificationsServiceIsGooglePlayServicesAvailable = (*androidEnv)->GetMethodID(androidEnv, jPushNotificationsServiceClass, "isGooglePlayServicesAvailable", "()I");
     jDalvikPushNotificationsServiceGetErrorString = (*androidEnv)->GetMethodID(androidEnv, jPushNotificationsServiceClass, "getErrorString", "(I)java/lang/String;");
     jDalvikPushNotificationsServiceInitializeFirebase = (*androidEnv)->GetMethodID(androidEnv, jPushNotificationsServiceClass, "initializeFirebase", "(Ljava/lang/String;Ljava/lang/String;)V");
@@ -85,6 +87,21 @@ void dalvikEnableDebug() {
     }
 
     (*androidEnv)->CallVoidMethod(androidEnv, jDalvikPushNotificationsService, jDalvikPushNotificationsServiceEnableDebug);
+}
+
+jstring dalvikGetPackageName(JNIEnv *env) {
+    if ((*androidVM)->GetEnv(androidVM, (void **)&androidEnv, JNI_VERSION_1_6) != JNI_OK) {
+        ATTACH_LOG_WARNING("dalvikGetPackageName called from not-attached thread\n");
+        (*androidVM)->AttachCurrentThread(androidVM, (void **)&androidEnv, NULL);
+    }  else {
+        ATTACH_LOG_FINE("dalvikGetPackageName called from attached thread %p\n", androidEnv);
+    }
+
+    jstring dalvikPackageName = (jstring) (*androidEnv)->CallObjectMethod(androidEnv, jDalvikPushNotificationsService, jDalvikPushNotificationsServiceGetPackageName);
+    const char *packageNameChars = (*androidEnv)->GetStringUTFChars(androidEnv, dalvikPackageName, NULL);
+    jstring graalPackageName = (*env)->NewStringUTF(env, packageNameChars);
+    (*androidEnv)->ReleaseStringUTFChars(androidEnv, dalvikPackageName, packageNameChars);
+    return graalPackageName;
 }
 
 jint dalvikIsGooglePlayServicesAvailable() {
@@ -114,7 +131,7 @@ jstring dalvikGetErrorString(JNIEnv *env, jint resultCode) {
     return graalErrorString;
 }
 
-void dalvikInitializeFirebase(JNIEnv *env, jstring applicationId, jstring productNumber) {
+void dalvikInitializeFirebase(JNIEnv *env, jstring applicationId, jstring projectNumber) {
     if ((*androidVM)->GetEnv(androidVM, (void **)&androidEnv, JNI_VERSION_1_6) != JNI_OK) {
         ATTACH_LOG_WARNING("dalvikInitializeFirebase called from not-attached thread\n");
         (*androidVM)->AttachCurrentThread(androidVM, (void **)&androidEnv, NULL);
@@ -123,15 +140,15 @@ void dalvikInitializeFirebase(JNIEnv *env, jstring applicationId, jstring produc
     }
 
     const char *applicationIdChars = (*env)->GetStringUTFChars(env, applicationId, NULL);
-    const char *productNumberChars = (*env)->GetStringUTFChars(env, productNumber, NULL);
+    const char *projectNumberChars = (*env)->GetStringUTFChars(env, projectNumber, NULL);
     jstring dalvikApplicationId = (*androidEnv)->NewStringUTF(androidEnv, applicationIdChars);
-    jstring dalvikProductNumber = (*androidEnv)->NewStringUTF(androidEnv, productNumberChars);
+    jstring dalvikProjectNumber = (*androidEnv)->NewStringUTF(androidEnv, projectNumberChars);
     (*androidEnv)->CallVoidMethod(androidEnv, jDalvikPushNotificationsService, jDalvikPushNotificationsServiceInitializeFirebase,
-            dalvikApplicationId, dalvikProductNumber);
+            dalvikApplicationId, dalvikProjectNumber);
     (*androidEnv)->DeleteLocalRef(androidEnv, dalvikApplicationId);
-    (*androidEnv)->DeleteLocalRef(androidEnv, dalvikProductNumber);
+    (*androidEnv)->DeleteLocalRef(androidEnv, dalvikProjectNumber);
     (*env)->ReleaseStringUTFChars(env, applicationId, applicationIdChars);
-    (*env)->ReleaseStringUTFChars(env, productNumber, productNumberChars);
+    (*env)->ReleaseStringUTFChars(env, projectNumber, projectNumberChars);
 }
 
 //////////////////////////
@@ -158,21 +175,26 @@ JNI_OnLoad_PushNotifications(JavaVM *vm, void *reserved)
 }
 
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_pushnotifications_impl_AndroidPushNotificationsService_enableDebug
-(JNIEnv *env, jclass jClass) {
+(JNIEnv *env, jobject service) {
     dalvikEnableDebug();
 }
 
+JNIEXPORT jstring JNICALL Java_com_gluonhq_attach_pushnotifications_impl_AndroidPushNotificationsService_getPackageName
+(JNIEnv *env, jobject service) {
+    return dalvikGetPackageName(env);
+}
+
 JNIEXPORT jint JNICALL Java_com_gluonhq_attach_pushnotifications_impl_AndroidPushNotificationsService_isGooglePlayServicesAvailable
-(JNIEnv *env, jclass jClass) {
+(JNIEnv *env, jobject service) {
     return dalvikIsGooglePlayServicesAvailable();
 }
 
 JNIEXPORT jstring JNICALL Java_com_gluonhq_attach_pushnotifications_impl_AndroidPushNotificationsService_getErrorString
-(JNIEnv *env, jclass jClass, jint resultCode) {
+(JNIEnv *env, jobject service, jint resultCode) {
     return dalvikGetErrorString(env, resultCode);
 }
 
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_pushnotifications_impl_AndroidPushNotificationsService_initializeFirebase
-(JNIEnv *env, jclass jClass, jstring applicationId, jstring productNumber) {
-    dalvikInitializeFirebase(env, applicationId, productNumber);
+(JNIEnv *env, jobject service, jstring applicationId, jstring projectNumber) {
+    dalvikInitializeFirebase(env, applicationId, projectNumber);
 }

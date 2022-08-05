@@ -260,7 +260,8 @@ ext.nativeBuildLib = { buildDir, projectDir, name, os ->
     def osIncludeFlags = ""
 
     if (os == "ios") {
-        osIncludeFlags = "-I$JAVAHOME/include/darwin"
+        osIncludeFlags = ["-I$JAVAHOME/include/darwin",
+                          "-I$projectDir/../../gradle/include/ios"].flatten()
 
         def linkerOutputs = []
         def lipoOutput = "$buildDir/native/ios/lib${name}.a"

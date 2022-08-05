@@ -28,6 +28,7 @@
 package com.gluonhq.attach.keyboard.impl;
 
 import com.gluonhq.attach.keyboard.KeyboardService;
+import com.gluonhq.attach.keyboard.KeyboardType;
 import com.gluonhq.attach.util.Util;
 import javafx.animation.Interpolator;
 import javafx.animation.TranslateTransition;
@@ -69,6 +70,18 @@ public class AndroidKeyboardService implements KeyboardService {
         return VISIBLE_HEIGHT.getReadOnlyProperty();
     }
 
+    @Override
+    public void setKeyboardType(KeyboardType keyboardType) {
+        int type;
+        switch (keyboardType) {
+            case ASCII: type = 1; break; // TYPE_CLASS_TEXT
+            case NUMERIC: type = 2; break; // TYPE_CLASS_NUMBER
+            case DEFAULT: type = 0; break; // TYPE_NULL
+            default: type = 1;
+        }
+        nativeKeyboardType(type);
+    }
+
     private static void adjustPosition(Node node, Parent parent, double kh) {
         if (node == null || node.getScene() == null || node.getScene().getWindow() == null) {
             return;
@@ -93,6 +106,9 @@ public class AndroidKeyboardService implements KeyboardService {
             transition.playFromStart();
         }
     }
+
+    // native
+    private static native void nativeKeyboardType(int type);
 
     // callback
     private static void notifyVisibleHeight(float height) {

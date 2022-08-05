@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Gluon
+ * Copyright (c) 2022, Gluon
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,22 +25,22 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+package com.gluonhq.attach.keyboard;
 
-#import <UIKit/UIKit.h>
-#include "jni.h"
-#include "AttachMacros.h"
-#include "GlassWindow.h"
-
-@interface Keyboard : NSObject {}
-    - (void) startObserver;
-    - (void) stopObserver;
-    - (void) setKeyboardType:(int) type;
-@end
-
-void sendVisibleHeight();
-
-@interface GlassWindow (KeyboardAdditions)
-
-- (void) setCustomKeyboardType:(int) type;
-
-@end
+/**
+ * Enumeration describing the different keyboard types.
+ */
+public enum KeyboardType {
+    /**
+     * Default type
+     */
+    DEFAULT,
+    /**
+     * ASCII type
+     */
+    ASCII,
+    /**
+     * Numeric type
+     */
+    NUMERIC
+}

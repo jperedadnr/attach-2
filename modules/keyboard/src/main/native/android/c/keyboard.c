@@ -92,3 +92,10 @@ JNIEXPORT void JNICALL Java_com_gluonhq_helloandroid_KeyboardService_nativeDispa
     DETACH_GRAAL();
     ATTACH_LOG_FINE("called Attach method from native Keyboard done");
 }
+
+JNIEXPORT void JNICALL Java_com_gluonhq_attach_keyboard_impl_AndroidKeyboardService_nativeKeyboardType
+(JNIEnv *env, jclass jClass, jint jtype)
+{
+    //type = jtype;
+    return;
+}

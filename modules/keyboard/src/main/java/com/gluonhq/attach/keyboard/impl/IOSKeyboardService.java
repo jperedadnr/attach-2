@@ -28,6 +28,7 @@
 package com.gluonhq.attach.keyboard.impl;
 
 import com.gluonhq.attach.keyboard.KeyboardService;
+import com.gluonhq.attach.keyboard.KeyboardType;
 import com.gluonhq.attach.lifecycle.LifecycleEvent;
 import com.gluonhq.attach.lifecycle.LifecycleService;
 import com.gluonhq.attach.util.Util;
@@ -82,6 +83,18 @@ public class IOSKeyboardService implements KeyboardService {
         return VISIBLE_HEIGHT.getReadOnlyProperty();
     }
 
+    @Override
+    public void setKeyboardType(KeyboardType keyboardType) {
+        int type;
+        switch (keyboardType) {
+            case ASCII: type = 1; break;
+            case NUMERIC: type = 4; break;
+            case DEFAULT: type = 0; break;
+            default: type = 0;
+        }
+        nativeKeyboardType(type);
+    }
+
     private static void adjustPosition(Node node, Parent parent, double kh) {
         if (node == null || node.getScene() == null || node.getScene().getWindow() == null) {
             return;
@@ -110,6 +123,7 @@ public class IOSKeyboardService implements KeyboardService {
     // native
     private static native void startObserver();
     private static native void stopObserver();
+    private static native void nativeKeyboardType(int type);
 
     // callback
     private static void notifyVisibleHeight(float height) {

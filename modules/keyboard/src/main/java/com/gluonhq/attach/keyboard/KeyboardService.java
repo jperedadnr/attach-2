@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Gluon
+ * Copyright (c) 2020, 2022, Gluon
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -85,4 +85,12 @@ public interface KeyboardService {
      * @return A ReadOnlyFloatProperty with the height of the soft keyboard
      */
     ReadOnlyFloatProperty visibleHeightProperty();
+
+    /**
+     * Sets the type of keyboard
+     *
+     * Since 4.0.15
+     * @param keyboardType the type of keyboard that should be used
+     */
+    void setKeyboardType(KeyboardType keyboardType);
 }

@@ -9,8 +9,8 @@ def projectIOSResources     = "$project.projectDir/src/ios/resources/"
 def projectAndroidResources = "$project.projectDir/src/android/resources/"
 def projectDesktopResources = "$project.projectDir/src/desktop/resources/"
 
-def sdkPath(String platform) {
-    return "/Applications/Xcode.app/Contents/Developer/Platforms/${platform}.platform/Developer/SDKs/${platform}${IOS_VERSION}.sdk";
+def sdkPath(String platform, String version) {
+    return "/Applications/Xcode.app/Contents/Developer/Platforms/${platform}.platform/Developer/SDKs/${platform}${version}.sdk";
 }
 
 task androidBuild {
@@ -22,7 +22,7 @@ task androidBuild {
         if (aar == null) {
             println "Error creating $aar"
         }
-        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName, 'android')
+        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName, 'android', '', 'static')
     }
 }
 
@@ -51,7 +51,7 @@ task iosBuild {
     dependsOn build
     doLast {
         def serviceName = getServiceName(project.name)
-        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName, 'ios')
+        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName, 'ios', "${IOS_VERSION}", 'static')
     }
 }
 
@@ -80,7 +80,12 @@ task desktopBuild {
     dependsOn build
     doLast {
         def serviceName = getServiceName(project.name)
-        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName, 'desktop')
+        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName,
+                System.getProperty('os.name').toLowerCase().contains("mac") ? 'darwin' : 'desktop',
+                System.getProperty('os.name').toLowerCase().contains("mac") ? "${MACOSX_VERSION}" : '', 'static')
+        nativeBuildLib("$project.buildDir", "$project.projectDir", serviceName,
+                System.getProperty('os.name').toLowerCase().contains("mac") ? 'darwin' : 'desktop',
+                System.getProperty('os.name').toLowerCase().contains("mac") ? "${MACOSX_VERSION}" : '', 'shared')
     }
 }
 
@@ -98,7 +103,8 @@ task desktopJar (type: Jar, dependsOn: desktopBuild) {
     afterEvaluate {
         def serviceName = getServiceName(project.name)
         into("native") {
-            from "$project.buildDir/native/desktop/lib${serviceName}.a"
+            from "$project.buildDir/native/darwin/lib${serviceName}.dylib"
+            from "$project.buildDir/native/darwin/lib${serviceName}.a"
         }
     }
 }
@@ -224,7 +230,7 @@ ext.aarBuild = { buildDir, projectDir, name, os ->
         into dalvikOutput
         rename { fileName -> fileName.replace('library-debug', "$name") }
     }
-    
+
     println("build for ${name}.aar finished")
     File a = new File("$dalvikOutput/${name}.aar")
     if (a.exists()) {
@@ -232,7 +238,7 @@ ext.aarBuild = { buildDir, projectDir, name, os ->
     }
 }
 
-ext.nativeBuildLib = { buildDir, projectDir, name, os ->
+ext.nativeBuildLib = { buildDir, projectDir, name, os, version, type ->
 
     println("native build for $name started")
     File shareDir = file("$projectDir/src/main/native/share")
@@ -259,7 +265,89 @@ ext.nativeBuildLib = { buildDir, projectDir, name, os ->
     ]
     def osIncludeFlags = ""
 
-    if (os == "ios") {
+    if (os == "darwin") {
+        osIncludeFlags = "-I$JAVAHOME/include/darwin"
+        def linkerOutputs = []
+        def extension = type == 'static' ? "a" : "dylib"
+        def lipoOutput = "$buildDir/native/darwin/lib${name}.${extension}"
+        def buildSystems = ["MacOSX+arm64", "MacOSX+x86_64"]
+        buildSystems.each { buildSystem ->
+
+            def (platform, arch) = buildSystem.tokenize("+")
+            def sdkPathDarwin = sdkPath(platform, version)
+            if (!file(sdkPathDarwin).exists()) {
+                println "Skipping native-build on macOS: path for ${platform} and version ${MACOSX_VERSION} doesn't exist"
+                return
+            }
+
+            osSources = "$projectDir/src/main/native/$os/${name}.m"
+
+            def compileOutput = "$buildDir/native/darwin/$arch"
+            new File(compileOutput).mkdirs()
+            def compileOutputs = ["$buildDir/native/darwin/$arch/${name}.o"]
+            def linkerOutput = "$buildDir/native/darwin/$arch/lib${name}.${extension}"
+
+            def clangArgs = [
+                    "-xobjective-c",
+                    "-mmacosx-version-min=11.0",
+                    includeFlags,
+                    osIncludeFlags,
+                    "-c",
+                    "-fPIC",
+                    "-arch", arch,
+                    "-isysroot",
+                    sdkPathDarwin,
+                    osSources].flatten()
+
+            exec {
+                executable "clang"
+                args clangArgs
+                workingDir compileOutput
+            }
+
+            def commonLinkerArgs = [
+                    "-framework", "Foundation",
+                    "-framework", "CoreGraphics",
+                    "-framework", "CoreBluetooth",
+                    "-framework", "CoreLocation",
+                    "-framework", "CoreMotion",
+                    "-framework", "CoreText",
+                    "-framework", "QuartzCore",
+                    "-framework", "StoreKit",
+                    "-framework", "UserNotifications",
+                    "-L${sdkPathDarwin}/usr/lib",
+                    "-o", linkerOutput,
+                    compileOutputs
+            ].flatten()
+
+            def dynamicLinkFlags = ["-dynamiclib", "-arch", arch, commonLinkerArgs].flatten()
+
+            def staticLinkFlags  = ["-static", "-syslibroot", sdkPathDarwin, "-arch_only", arch, commonLinkerArgs].flatten();
+
+            def linkerArgs = type == 'static' ? staticLinkFlags : dynamicLinkFlags
+            def executableArg = type == 'static' ? "libtool" : "clang++"
+
+            exec {
+                executable executableArg
+                args linkerArgs
+                workingDir compileOutput
+            }
+            linkerOutputs.add(linkerOutput)
+
+            // execute lipo to combine all linker output in one archive
+            def lipoArgs = ["-create", linkerOutputs, "-o", lipoOutput].flatten()
+            exec {
+                executable "lipo"
+                args lipoArgs
+            }
+
+            println("native build for $name finished")
+            File n = new File(lipoOutput)
+            if (n.exists()) {
+                n
+            }
+        }
+    } else if (os == "ios") {
         osIncludeFlags = "-I$JAVAHOME/include/darwin"
 
         def linkerOutputs = []
@@ -269,29 +357,31 @@ ext.nativeBuildLib = { buildDir, projectDir, name, os ->
         buildSystems.each { buildSystem ->
 
             def (platform, arch) = buildSystem.tokenize("+")
-            if (!file(sdkPath(platform)).exists()) {
-                println "Skipping native-build on iOS: path for ${platform} doesn't exist"
+
+            def sdkPathIos = sdkPath(platform, version)
+            if (!file(sdkPathIos).exists()) {
+                println "Skipping native-build on iOS: path for ${platform} and version ${IOS_VERSION} doesn't exist"
                 return
             }
-            
+
             osSources = "$projectDir/src/main/native/$os/${name}.m"
-            
+
             def compileOutput = "$buildDir/native/ios/$arch"
             new File(compileOutput).mkdirs()
             def compileOutputs = ["$buildDir/native/ios/$arch/${name}.o"]
             def linkerOutput = "$buildDir/native/ios/$arch/lib${name}.a"
-            
+
             def clangArgs = [
-                "-xobjective-c",
-                "-mios-version-min=11.0",
-                includeFlags,
-                osIncludeFlags,
-                "-c",
-                "-fPIC",
-                "-arch", arch,
-                "-isysroot",
-                sdkPath(platform),
-                osSources].flatten()
+                    "-xobjective-c",
+                    "-mios-version-min=11.0",
+                    includeFlags,
+                    osIncludeFlags,
+                    "-c",
+                    "-fPIC",
+                    "-arch", arch,
+                    "-isysroot",
+                    sdkPathIos,
+                    osSources].flatten()
 
             exec {
                 executable "clang"
@@ -313,8 +403,8 @@ ext.nativeBuildLib = { buildDir, projectDir, name, os ->
                     "-framework", "StoreKit",
                     "-framework", "UserNotifications",
                     "-arch_only", arch,
-                    "-syslibroot", sdkPath(platform),
-                    "-L${sdkPath(platform)}/usr/lib",
+                    "-syslibroot", sdkPathIos,
+                    "-L${sdkPathIos}/usr/lib",
                     "-o", linkerOutput,
                     compileOutputs
             ].flatten()

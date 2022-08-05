@@ -16,7 +16,17 @@ if (System.getProperty('os.name').toLowerCase().contains("mac")) {
         ext.IOS_VERSION = os.toString().trim()
         println "IOS version: $IOS_VERSION"
     }
+    new ByteArrayOutputStream().withStream { os ->
+        exec {
+            args '-version', '-sdk', 'macosx', 'SDKVersion'
+            executable 'xcodebuild'
+            standardOutput = os
+        }
+        ext.MACOSX_VERSION = os.toString().trim()
+        println "MacOSX   version: $MACOSX_VERSION"
+    }
 } else {
+    ext.MACOSX_VERSION = ""
     ext.IOS_VERSION = ""
 }
 

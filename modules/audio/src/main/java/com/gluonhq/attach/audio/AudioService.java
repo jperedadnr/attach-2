@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Gluon
+ * Copyright (c) 2020, 2023, Gluon
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,7 +46,8 @@ import java.util.Optional;
  * <p><b>iOS Configuration</b>: none</p>
  *
  * @author Almas Baimagambetov (almaslvl@gmail.com)
- * @since 4.0.9
+ * @since 4.0.9 (Android)
+ * @since 4.0.17 (iOS)
  */
 public interface AudioService {
 

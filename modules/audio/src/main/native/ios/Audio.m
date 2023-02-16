@@ -70,9 +70,7 @@ JNIEXPORT jint JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_loadSo
         AttachLog(@"Loading sound from file. Absolute path: %@", sURLChars);
     }
 
-    [_audio playSound:sURLChars];
-
-    return 1;
+    return [_audio loadSound:sURLChars];
 }
 
 JNIEXPORT jint JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_loadMusicImpl
@@ -85,9 +83,7 @@ JNIEXPORT jint JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_loadMu
         AttachLog(@"Loading music from file. Absolute path: %@", sURLChars);
     }
 
-    [_audio playMusic:sURLChars];
-
-    return 1;
+    return [_audio loadMusic:sURLChars];
 }
 
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_setLooping
@@ -105,47 +101,59 @@ JNIEXPORT void JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_setVol
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_play
 (JNIEnv *env, jclass jClass, jint jAudioId)
 {
-    [_audio play];
+    [_audio play:jAudioId];
 }
 
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_pause
 (JNIEnv *env, jclass jClass, jint jAudioId)
 {
-    [_audio pause];
+    [_audio pause:jAudioId];
 }
 
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_stop
 (JNIEnv *env, jclass jClass, jint jAudioId)
 {
-    [_audio stop];
+    [_audio stop:jAudioId];
 }
 
 JNIEXPORT void JNICALL Java_com_gluonhq_attach_audio_impl_IOSAudioService_dispose
 (JNIEnv *env, jclass jClass, jint jAudioId)
 {
-    [_audio dispose];
+    [_audio dispose:jAudioId];
 }
 
 
 @implementation Audio 
 
 SystemSoundID soundId;
-AVAudioPlayer *avSound;
+AVPlayer *avSound;
+NSMutableArray *avSoundItems;
 
-- (void) playSound:(NSString *)fileName
+- (NSInteger) loadSound:(NSString *)fileName
 {   
         [self logMessage:@"Audio sound: %@", fileName];
         AudioServicesCreateSystemSoundID((__bridge CFURLRef)[NSURL fileURLWithPath:fileName], &soundId);
+        return 1;
 }
 
-- (void) playMusic:(NSString *)fileName
+- (NSInteger) loadMusic:(NSString *)fileName
 {
         [self logMessage:@"Audio music: %@", fileName];
-        avSound = [[AVAudioPlayer alloc]
-                   initWithContentsOfURL:[NSURL fileURLWithPath:fileName] error:nil];
+        if (!avSound)
+        {
+            avSound = [[AVPlayer alloc] init];
+        }
+        if (!avSoundItems)
+        {
+            avSoundItems = [[NSMutableArray alloc] init];
+        }
+        AVPlayerItem *item = [AVPlayerItem playerItemWithURL:[NSURL fileURLWithPath:fileName]];
+        [avSoundItems addObject:item];
+        [self logMessage:@"Audio item: %@, id: %d", item, [avSoundItems count] - 1];
+        return [avSoundItems count] - 1;
 }
 
-- (void) play
+- (void) play:(NSInteger)index
 {
     if (soundId)
     {
@@ -153,11 +161,17 @@ AVAudioPlayer *avSound;
     }
     else if (avSound)
     {
-        [avSound play];
+        AVPlayerItem *item = [avSoundItems objectAtIndex:index];
+        [self logMessage:@"Play Audio item: %@, id: %d", item, index];
+        [avSound replaceCurrentItemWithPlayerItem:item];
+        [item seekToTime:kCMTimeZero completionHandler:^(BOOL finished)
+        {
+            [avSound play];
+        }];
     }
 }
 
-- (void) pause
+- (void) pause:(NSInteger)index
 {
     if (avSound)
     {
@@ -165,15 +179,16 @@ AVAudioPlayer *avSound;
     }
 }
 
-- (void) stop
+- (void) stop:(NSInteger)index
 {
     if (avSound)
     {
-        [avSound stop];
+        [avSound seekToTime:CMTimeMake(0, 1)];
+        [avSound pause];
     }
 }
 
-- (void) dispose
+- (void) dispose:(NSInteger)index
 {
     if (soundId > 0)
     {
@@ -182,13 +197,8 @@ AVAudioPlayer *avSound;
     }
     else if (avSound)
     {
-        if ([avSound isPlaying])
-        {
-            [avSound stop];
-        }
-
-        [avSound release];
-        avSound = nil;
+        AVPlayerItem *item = [avSoundItems objectAtIndex:index];
+        [item release];
     }
 }
 

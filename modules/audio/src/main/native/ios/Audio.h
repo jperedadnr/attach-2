@@ -33,10 +33,10 @@
 #import <AVFoundation/AVFoundation.h>
 
 @interface Audio : UIViewController {}
-    - (void) playSound:(NSString *)fileName;
-    - (void) playMusic:(NSString *)fileName;
-    - (void) play;
-    - (void) pause;
-    - (void) stop;
-    - (void) dispose;
+    - (NSInteger) loadSound:(NSString *)fileName;
+    - (NSInteger) loadMusic:(NSString *)fileName;
+    - (void) play:(NSInteger)index;
+    - (void) pause:(NSInteger)index;
+    - (void) stop:(NSInteger)index;
+    - (void) dispose:(NSInteger)index;
 @end
